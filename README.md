@@ -2,7 +2,7 @@
 Tensor-product space-time Finite Element Method for the Boussinesq equations in FEniCS
 
 Group project for the course "Space-time methods" at the Leibniz University Hannover in the winter semester 2023/2024 <br>
-Authors: [Philipp Baasch](https://github.com/PhilBaa), Göran Ratz  
+Authors: [Philipp Baasch](https://github.com/PhilBaa), [Göran Ratz](https://github.com/GARHG)  
 Tutors: [Julian Roth](https://github.com/mathmerizing/), [Hendrik Fischer](https://github.com/Hendrik240298)
 
 ## ToDo list
