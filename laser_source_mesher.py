@@ -10,7 +10,7 @@ with pygmsh.geo.Geometry() as geom:
         ],
         mesh_size=0.05,
     )
-    mesh = geom.generate_mesh()
+    mesh = geom.generate_mesh(dim=2)
 
 
-mesh.write("out.vtk")
+mesh.write("laser.xml")
