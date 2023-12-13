@@ -185,6 +185,8 @@ r = 1
 slab_size = 0.03125
 n_x = 1
 nu = 0.001
+alpha = 6.88e-5
+g = 9.81
 
 # start simulation
 cpu_start_time = time.time()
@@ -274,13 +276,6 @@ for k, slab in enumerate(slabs):
     
     V = FunctionSpace(space_mesh, MixedElement(*[element["v"] for _ in range(Time.n_dofs)], *[element["p"] for _ in range(Time.n_dofs)], *[element["e"] for _ in range(Time.n_dofs)]))
     n_subspaces = V.num_sub_spaces()
-    print("Spaces = [", end="")
-    for i in range(n_subspaces):
-        if V.sub(i).num_sub_spaces() == 2:
-            print("v", end=",")
-        else:
-            print("p", end=",")
-    print("]")
     
     U_kh = Function(V)
     Phi_kh = TestFunctions(V)
@@ -302,7 +297,6 @@ for k, slab in enumerate(slabs):
         for i in Time.local_dofs[time_element]:
             for j in Time.local_dofs[time_element]:
                 for (t_q, w_q) in Time.quadrature[time_element]:
-                    print(Time.local_dofs[time_element])
                     # TODO: to reduce the number of terms in the sum, the sum over the temporal quadrature can be evaluated prior to adding to the form F
                     F += Constant(w_q * Time.dt_phi[j](t_q) * Time.phi[i](t_q)) \
                         * dot(U["v"][j], Phi["v"][i]) * dx
@@ -398,6 +392,7 @@ for k, slab in enumerate(slabs):
             # initial condition
             if n == 0:
                 F -= Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+            #inhomogeneity
             for (t_q, w_q) in Time.quadrature[time_element]:
                 F -= Constant(w_q * Time.phi[i](t_q)) * laser * Phi["e"][i] * dx #time integral
 
@@ -427,6 +422,12 @@ for k, slab in enumerate(slabs):
                     for (t_q, w_q) in Time.quadrature[time_element]:
                         F += Constant(w_q * Time.phi[j](t_q) * Time.phi[i](t_q) * Time.phi[l](t_q)) \
                             * inner(U["v"][j], grad(U["e"][i])) * Phi["e"][l] * dx
+        #linear term due to thermal expansion
+        for i in Time.local_dofs[time_element]:
+            for j in Time.local_dofs[time_element]:
+                for (t_q, w_q) in Time.quadrature[time_element]:
+                    F += Constant(w_q * Time.phi[j](t_q) * Time.phi[i](t_q)* alpha* g) \
+                        *U["e"][i] * Phi["v"][j][1] * dx
 
     # define time dependent Dirichlet boundary conditions
     bcs = []
