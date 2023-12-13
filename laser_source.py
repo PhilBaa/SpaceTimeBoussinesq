@@ -5,6 +5,8 @@ from sympy import Mul, Id, symbols, init_printing, expand, compose, diff, lambdi
 from IPython.display import Math, display
 from fenics import Mesh, VectorElement, Function, TrialFunction, TestFunction, TestFunctions, FunctionSpace, dx, inner, grad, FiniteElement, MixedElement, Constant, assemble, Expression, interpolate, solve, DirichletBC, plot, errornorm, set_log_active, derivative, parameters, split, dot, div, CompiledSubDomain, MeshFunction, sqrt, Measure, FacetNormal, Identity
 from ufl import replace
+from ufl.operators import exp
+from fenics import exp
 import time
 import pandas as pd
 set_log_active(False) # turn off FEniCS logging
@@ -216,7 +218,7 @@ walls.mark(facet_marker, 1)
 # initial condition on slab
 U0 = Function(Vh)
 v0, p0, e0 = split(U0)
-U0 = interpolate(Constant((0.,0.,0.,1.)), Vh)
+U0 = interpolate(Constant((0.,0.,0.,0.)), Vh)
 
 # split functions into velocity and pressure components
 v, p, e = split(Uh)
@@ -228,6 +230,9 @@ phi_v, phi_p, phi_e = Phih
 #pressure_form = p * div(phi_v) * dx
 #div_form = div(v) * phi_p * dx
 #convection_form = dot(dot(grad(v), v), phi_v) * dx
+
+x0 = (0.75, 0.75)
+laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) + pow(x[1] - 0.75, 2)))', degree=2)
 
 # pre-assemble drag and lift
 dU = TrialFunction(Vh) 
@@ -313,6 +318,19 @@ for k, slab in enumerate(slabs):
                     for (t_q, w_q) in Time.quadrature_fine[time_element]:
                         F += Constant(w_q * Time.phi[j](t_q) * Time.phi[l](t_q) * Time.phi[i](t_q)) \
                             * dot(dot(grad(U["v"][j]), U["v"][l]), Phi["v"][i])* dx   
+
+        for i in Time.local_dofs[time_element]:
+            for j in Time.local_dofs[time_element]:
+                    # NOTE: For nonlinearities make sure that the temporal quadrature is fine enough
+                    # E.g. for the nonlinearity u^2, we need to be able to integrate polynomials of degree 3r exactly in time
+                    #      for this we need Gauss-Legendre quadrature of degree >= (3r+1)/2
+                    for (t_q, w_q) in Time.quadrature_fine[time_element]:
+                        theta_tq = 0. # Function?
+                        for l in Time.local_dofs[time_element]:
+                            theta_tq += exp(1/(U["e"][l]*Time.phi[l](t_q) + 200))
+                        F += Constant(w_q * Time.phi[j](t_q)  * Time.phi[i](t_q)) \
+                            * inner(grad(U["v"][j]), grad(Phi["v"][i]))*theta_tq * dx 
+        
                         
                         
     # RHS integral
@@ -379,7 +397,9 @@ for k, slab in enumerate(slabs):
         for i in Time.local_dofs[time_element]:
             # initial condition
             if n == 0:
-                F -=  Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+                F -= Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+            for (t_q, w_q) in Time.quadrature[time_element]:
+                F -= Constant(w_q * Time.phi[i](t_q)) * laser * Phi["e"][i] * dx #time integral
 
     #jump terms
     for n, time_element in enumerate(Time.mesh):
@@ -396,7 +416,7 @@ for k, slab in enumerate(slabs):
                     F += Constant((-1.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
 
     # ================= #
-    #   (e,p) - Block   #
+    #   (e,v) - Block   #
     # ================= #
         
     # volume integral
@@ -413,7 +433,7 @@ for k, slab in enumerate(slabs):
     offset = 2*len(Time.dof_locations)
     for i, t_q in enumerate(Time.dof_locations):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), walls))
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(300), walls))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(0), walls))
 
 
 
@@ -446,6 +466,8 @@ for k, slab in enumerate(slabs):
         c = plot(e0, title="Temperature")
         plt.colorbar(c, orientation="horizontal")
         plt.show()
+
+        print("Temperature at middle:", U0(0.5,0.5))
 
     ## compute functional values
     #total_time_n_dofs += Time.n_dofs
