@@ -1,6 +1,6 @@
 import dolfin
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from sympy import Mul, Id, symbols, init_printing, expand, compose, diff, lambdify, Piecewise
 from IPython.display import Math, display
 from fenics import Mesh, VectorElement, Function, TrialFunction, TestFunction, TestFunctions, FunctionSpace, dx, inner, grad, FiniteElement, MixedElement, Constant, assemble, Expression, interpolate, solve, DirichletBC, plot, errornorm, set_log_active, derivative, parameters, split, dot, div, CompiledSubDomain, MeshFunction, sqrt, Measure, FacetNormal, Identity
@@ -9,6 +9,7 @@ from ufl.operators import exp
 from fenics import exp
 import time
 import pandas as pd
+from dolfin.cpp.io import File
 set_log_active(False) # turn off FEniCS logging
 parameters["reorder_dofs_serial"] = False
 
@@ -198,8 +199,8 @@ while slabs[-1][1] < end_time - 1e-8:
 
 # get spatial function space
 space_mesh = Mesh("laser.xml") 
-plot(space_mesh, title="spatial mesh")
-plt.show()
+#plot(space_mesh, title="spatial mesh")
+#plt.show()
 element = {
     "v": VectorElement("Lagrange", space_mesh.ufl_cell(), s_v),
     "p": FiniteElement("Lagrange", space_mesh.ufl_cell(), s_p),
@@ -458,17 +459,8 @@ for k, slab in enumerate(slabs):
     if k % 8 == 0:
         # plot final solution on slab
         print(f"t = {slab[1]}:")
-        c = plot(sqrt(dot(v0, v0)), title="Velocity")
-        plt.colorbar(c, orientation="horizontal")
-        plt.show()
-        c = plot(p0, title="Pressure")
-        plt.colorbar(c, orientation="horizontal")
-        plt.show()
-        c = plot(e0, title="Temperature")
-        plt.colorbar(c, orientation="horizontal")
-        plt.show()
-
-        print("Temperature at middle:", U0(0.5,0.5))
+        file = File("output.pvd", "compressed")
+        file << (U0.split(deepcopy=True)[0], slab[0])
 
     ## compute functional values
     #total_time_n_dofs += Time.n_dofs
@@ -491,11 +483,3 @@ print("------------")
 print(f"Space-time Dofs: {total_n_dofs}")
 cpu_time = round(time.time() - cpu_start_time, 5)
 print(f"CPU Time: {cpu_time} s \n\n")
-
-plt.title("Drag")
-plt.plot(times_draglift, drag_values)
-plt.show()
-
-plt.title("Lift")
-plt.plot(times_draglift, lift_values)
-plt.show()
