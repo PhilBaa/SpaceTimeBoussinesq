@@ -176,14 +176,16 @@ class TimeFE:
 ##############################################
 # Start a time marching / time slabbing loop #
 ##############################################
+vfile = File("data/laser_output_v.pvd", "compressed")
+efile = File("data/laser_output_e.pvd", "compressed")
 start_time = 0.
-end_time = 8.
+end_time = 2.
 
 s_v = 2
 s_p = 1
 s_e = 2
 r = 1
-slab_size = 0.03125
+slab_size = 0.01
 n_x = 1
 nu = 0.001
 alpha = 6.88e-5
@@ -435,7 +437,7 @@ for k, slab in enumerate(slabs):
     offset = 2*len(Time.dof_locations)
     for i, t_q in enumerate(Time.dof_locations):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), walls))
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(0), walls))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(200), walls))
 
 
 
@@ -456,11 +458,10 @@ for k, slab in enumerate(slabs):
     )))
     v0, p0, e0 = split(U0)
     
-    if k % 8 == 0:
-        # plot final solution on slab
-        print(f"t = {slab[1]}:")
-        file = File("output.pvd", "compressed")
-        file << (U0.split(deepcopy=True)[0], slab[0])
+    # plot final solution on slab
+    print(f"t = {slab[1]}:")
+    vfile << (U0.split(deepcopy=True)[0], slab[0])
+    efile << (U0.split(deepcopy=True)[2], slab[0])
 
     ## compute functional values
     #total_time_n_dofs += Time.n_dofs
