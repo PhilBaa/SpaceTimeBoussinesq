@@ -179,13 +179,13 @@ class TimeFE:
 vfile = File("data/laser_output_v.pvd", "compressed")
 efile = File("data/laser_output_e.pvd", "compressed")
 start_time = 0.
-end_time = 2.
+end_time = 0.4
 
 s_v = 2
 s_p = 1
 s_e = 2
 r = 1
-slab_size = 0.01
+slab_size = 0.002
 n_x = 1
 nu = 0.001
 alpha = 6.88e-5
