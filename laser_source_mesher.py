@@ -1,5 +1,6 @@
 import pygmsh
 import meshio
+from numpy import min
 
 with pygmsh.geo.Geometry() as geom:
     geom.add_polygon(
@@ -11,7 +12,15 @@ with pygmsh.geo.Geometry() as geom:
         ],
         mesh_size=0.03,
     )
-    mesh = geom.generate_mesh(dim=2)
+
+    geom.set_mesh_size_callback(
+        lambda dim, tag, x, y, z, lc: min(
+            [2e-2 + 6.0e-1 * ((x - 0.75) ** 2 + (y - 0.75) ** 2), 
+            2e-2 + 6.0e-1 * ((x - 0.9) ** 2 + (y - 0.1) ** 2),
+            0.06])
+    )
+
+    mesh = geom.generate_mesh()
 
 
 
