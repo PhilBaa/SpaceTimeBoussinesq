@@ -201,9 +201,7 @@ while slabs[-1][1] < end_time - 1e-8:
 
 # get spatial function space
 space_mesh = Mesh("rect/rect.xml") 
-import matplotlib.pyplot as plt
-plot(space_mesh, title="spatial mesh")
-plt.show()
+
 element = {
     "v": VectorElement("Lagrange", space_mesh.ufl_cell(), s_v),
     "p": FiniteElement("Lagrange", space_mesh.ufl_cell(), s_p),
@@ -215,18 +213,19 @@ Uh = Function(Vh)
 Phih = TestFunctions(Vh)
 
 # boundaries
-walls = CompiledSubDomain("((near(x[0], -2.0) && x[1]>0.5) || near(x[1], 0.0) || near(x[1], 3.0) || near(x[0], 7.0)) && on_boundary")
-inflow = CompiledSubDomain("near(x[0], 0) && on_boundary")
+tol = 1e-6
 
-#inflow = CompiledSubDomain("near(x[0], -2.0) && x[1]<0.5 && on_boundary")
+walls = CompiledSubDomain(f"((near(x[0], -2.0) && x[1]>0.5 + {tol}) || near(x[1], 0.0) || near(x[1], 3.0) || (near(x[0], 8.0 && x[1] < 2.5 - {tol}))) && on_boundary")
 
+inflow = CompiledSubDomain(f"near(x[0], -2.0) && x[1]<0.5 + {tol} && on_boundary")
+outflow = CompiledSubDomain(f"near(x[0], 8.0) && x[1]>2.5 - {tol} && on_boundary")
 
-rects = CompiledSubDomain("((near(x[0], 1.0) && x[1] < 1.0) || \
+rects = CompiledSubDomain(f"((near(x[0], 1.0) && x[1] < 1.0) || \
                             (near(x[0], 2.0) && x[1] < 1.0) || \
                             (near(x[0], 3.0) && x[1] < 2.0) || \
                             (near(x[0], 4.0) && x[1] < 2.0) || \
-                            (near(x[1], 1.0) && x[0] > 1.0 && x[0] < 2.0) || \
-                            (near(x[1], 2.0) && x[0] > 3.0 && x[0] < 4.0) ) \
+                            (near(x[1], 1.0) && x[0] > 1.0-{tol} && x[0] < 2.0 + {tol}) || \
+                            (near(x[1], 2.0) && x[0] > 3.0-{tol} && x[0] < 4.0 + {tol}) ) \
                             && on_boundary")
 
 
@@ -447,6 +446,8 @@ for k, slab in enumerate(slabs):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), walls))
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), rects))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), inflow))
+        bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), outflow))
+
 
 
         bcs.append(DirichletBC(V.sub(i + offset), Constant(1), walls))
