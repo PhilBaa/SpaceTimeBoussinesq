@@ -15,14 +15,16 @@ with pygmsh.geo.Geometry() as geom:
             [4.0, 2.0],
             [4.0, 0.0],
             [8.0, 0.0],
+            [8.0, 2.5],
             [8.0, 3.0],
             [-2.0, 3.0],
+            [-2.0, 0.5],
 
 
 
             
         ],
-        mesh_size=0.5,
+        mesh_size=0.25,
     )
 
     #geom.set_mesh_size_callback(
