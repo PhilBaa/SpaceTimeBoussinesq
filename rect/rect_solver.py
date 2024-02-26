@@ -176,8 +176,8 @@ class TimeFE:
 ##############################################
 # Start a time marching / time slabbing loop #
 ##############################################
-vfile = File("data/laser_output_v.pvd", "compressed")
-efile = File("data/laser_output_e.pvd", "compressed")
+vfile = File("rect/data/rect_v.pvd", "compressed")
+efile = File("rect/data/rect_e.pvd", "compressed")
 start_time = 0.
 end_time = 0.4
 
@@ -200,9 +200,8 @@ while slabs[-1][1] < end_time - 1e-8:
     slabs.append((slabs[-1][1], slabs[-1][1]+slab_size))
 
 # get spatial function space
-space_mesh = Mesh("laser.xml") 
-#plot(space_mesh, title="spatial mesh")
-#plt.show()
+space_mesh = Mesh("rect/rect.xml") 
+
 element = {
     "v": VectorElement("Lagrange", space_mesh.ufl_cell(), s_v),
     "p": FiniteElement("Lagrange", space_mesh.ufl_cell(), s_p),
@@ -214,7 +213,21 @@ Uh = Function(Vh)
 Phih = TestFunctions(Vh)
 
 # boundaries
-walls = CompiledSubDomain("(near(x[0], 0) || near(x[1], 0) || near(x[0], 1) || near(x[1], 1)) && on_boundary")
+tol = 1e-6
+
+walls = CompiledSubDomain(f"((near(x[0], -2.0) && x[1]>0.5 + {tol}) || near(x[1], 0.0) || near(x[1], 3.0) || (near(x[0], 8.0 && x[1] < 2.5 - {tol}))) && on_boundary")
+
+inflow = CompiledSubDomain(f"near(x[0], -2.0) && x[1]<0.5 + {tol} && on_boundary")
+outflow = CompiledSubDomain(f"near(x[0], 8.0) && x[1]>2.5 - {tol} && on_boundary")
+
+rects = CompiledSubDomain(f"((near(x[0], 1.0) && x[1] < 1.0) || \
+                            (near(x[0], 2.0) && x[1] < 1.0) || \
+                            (near(x[0], 3.0) && x[1] < 2.0) || \
+                            (near(x[0], 4.0) && x[1] < 2.0) || \
+                            (near(x[1], 1.0) && x[0] > 1.0-{tol} && x[0] < 2.0 + {tol}) || \
+                            (near(x[1], 2.0) && x[0] > 3.0-{tol} && x[0] < 4.0 + {tol}) ) \
+                            && on_boundary")
+
 
 facet_marker = MeshFunction("size_t", space_mesh, 1)
 facet_marker.set_all(0)
@@ -223,7 +236,7 @@ walls.mark(facet_marker, 1)
 # initial condition on slab
 U0 = Function(Vh)
 v0, p0, e0 = split(U0)
-U0 = interpolate(Constant((0.,0.,0.,0.)), Vh)
+U0 = interpolate(Constant((0.,0.,0.,1.)), Vh)
 
 # split functions into velocity and pressure components
 v, p, e = split(Uh)
@@ -235,9 +248,6 @@ phi_v, phi_p, phi_e = Phih
 #pressure_form = p * div(phi_v) * dx
 #div_form = div(v) * phi_p * dx
 #convection_form = dot(dot(grad(v), v), phi_v) * dx
-
-x0 = (0.75, 0.75)
-laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) + pow(x[1] - 0.75, 2)))', degree=2)
 
 # pre-assemble drag and lift
 dU = TrialFunction(Vh) 
@@ -395,9 +405,6 @@ for k, slab in enumerate(slabs):
             # initial condition
             if n == 0:
                 F -= Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
-            #inhomogeneity
-            for (t_q, w_q) in Time.quadrature[time_element]:
-                F -= Constant(w_q * Time.phi[i](t_q)) * laser * Phi["e"][i] * dx #time integral
 
     #jump terms
     for n, time_element in enumerate(Time.mesh):
@@ -437,7 +444,15 @@ for k, slab in enumerate(slabs):
     offset = 2*len(Time.dof_locations)
     for i, t_q in enumerate(Time.dof_locations):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), walls))
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(200), walls))
+        bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), rects))
+        bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), inflow))
+        bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), outflow))
+
+
+
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(1), walls))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(1), inflow))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(200), rects))
 
 
 
