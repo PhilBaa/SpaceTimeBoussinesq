@@ -7,17 +7,18 @@ from rect.rect_mesher import save_rect_mesh
 vfile = File("rect/data/rect_v.pvd", "compressed")
 efile = File("rect/data/rect_e.pvd", "compressed")
 start_time = 0.
-end_time = 0.4
+end_time = 0.01
 
 s_v = 2
 s_p = 1
 s_e = 2
 r = 1
-slab_size = 0.002
+slab_size = 0.0005
 n_x = 1
-nu = 0.001
-alpha = 6.88e-5
-g = 9.81
+
+Re = 50
+Pe = 36
+Ri = 0
 
 parameters = {
     "s_v": s_v,
@@ -28,9 +29,14 @@ parameters = {
     "end_time": end_time,
     "slab_size": slab_size,
     "n_x": n_x,
-    "nu": nu,
-    "alpha": alpha,
-    "g": g
+    "nu0": Re,
+    "alpha": 1,
+    "g": Ri,
+    "R": 1,
+    "T0":1000,
+    "E_A": 0,
+    "rho": 1/Re,
+    "k": 1/Pe,
 }
 
 space_mesh = Mesh("rect/fine_rect.xml") 
@@ -60,9 +66,9 @@ def get_bcs(V, Time):
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), inflow))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), outflow))
 
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(1), walls))
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(1), inflow))
-        bcs.append(DirichletBC(V.sub(i + offset), Constant(200), rects))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(0), walls))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(0), inflow))
+        bcs.append(DirichletBC(V.sub(i + offset), Constant(1), rects))
     return bcs
 
 facet_marker = MeshFunction("size_t", space_mesh, 1)
@@ -70,7 +76,7 @@ facet_marker.set_all(0)
 walls.mark(facet_marker, 1)
 
 sim = Boussinesque_Solver('rect', space_mesh, parameters)
-sim.solve(get_bcs, vfile, efile)
+sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,1.0)))
 
 vfile = File("rect/data/forget.pvd", "compressed")
 efile = File("rect/data/forget.pvd", "compressed")
