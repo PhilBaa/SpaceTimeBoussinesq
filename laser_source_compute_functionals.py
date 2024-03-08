@@ -10,7 +10,6 @@ from fenics import exp
 import time
 import pandas as pd
 from dolfin.cpp.io import File
-import matplotlib.pyplot as plt
 set_log_active(False) # turn off FEniCS logging
 parameters["reorder_dofs_serial"] = False
 
@@ -177,8 +176,6 @@ class TimeFE:
 ##############################################
 # Start a time marching / time slabbing loop #
 ##############################################
-vfile = File("data/laser_output_v.pvd", "compressed")
-efile = File("data/laser_output_e.pvd", "compressed")
 start_time = 0.
 end_time = 0.4
 
@@ -201,7 +198,7 @@ while slabs[-1][1] < end_time - 1e-8:
     slabs.append((slabs[-1][1], slabs[-1][1]+slab_size))
 
 # get spatial function space
-space_mesh = Mesh("laser.xml") 
+space_mesh = Mesh("laser/fine_laser.xml") 
 #plot(space_mesh, title="spatial mesh")
 #plt.show()
 element = {
@@ -461,17 +458,16 @@ for k, slab in enumerate(slabs):
     
     # plot final solution on slab
     print(f"t = {slab[1]}:")
-    vfile << (U0.split(deepcopy=True)[0], slab[0])
-    efile << (U0.split(deepcopy=True)[2], slab[0])
 
     ## compute functional values
     temparr=np.array([])
     total_time_n_dofs += Time.n_dofs
     total_n_dofs += Vh.dim() * Time.n_dofs 
     for time_element in Time.mesh:
+        print(1)
         for (t_q, _) in Time.quadrature_fine[time_element]:
             Uq = Time.get_solution_at_time(t_q, solutions_e)
-            temparr=np.append(temparr, Uq)
+            temparr=np.append(temparr, np.mean(Uq))
     meantemp=np.mean(temparr)
     print(meantemp)       
     meantempev=np.append(meantempev, meantemp)       

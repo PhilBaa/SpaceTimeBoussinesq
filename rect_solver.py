@@ -44,7 +44,7 @@ space_mesh = Mesh("rect/fine_rect.xml")
 # boundaries
 tol = 1e-6
 
-walls = CompiledSubDomain(f"((near(x[0], -2.0) && x[1]>0.5 + {tol}) || near(x[1], 0.0) || near(x[1], 3.0) || (near(x[0], 8.0 && x[1] < 2.5 - {tol}))) && on_boundary")
+walls = CompiledSubDomain(f"((near(x[0], -2.0) && x[1]>0.5 + {tol}) || near(x[1], 0.0) || near(x[1], 3.0) || (near(x[0], 8.0) && x[1] < 2.5 - {tol})) && on_boundary")
 
 inflow = CompiledSubDomain(f"near(x[0], -2.0) && x[1]<0.5 + {tol} && on_boundary")
 outflow = CompiledSubDomain(f"near(x[0], 8.0) && x[1]>2.5 - {tol} && on_boundary")
