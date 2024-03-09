@@ -228,7 +228,7 @@ class Boussinesque_Solver:
         return self.func_vals
 
     
-    def weak_formulation(self, U, Phi, Time, v0, p0, e0):
+    def weak_formulation(self, U, Phi, Time, v0, p0, e0, k):
         # start with "empty" space-time variational form
         F = Constant(0.)*U["p"][0]*Phi["p"][0]*dx
 
@@ -271,7 +271,7 @@ class Boussinesque_Solver:
         for n, time_element in enumerate(Time.mesh):
             for i in Time.local_dofs[time_element]:
                 # initial condition
-                if n == 0:
+                if k == 0:
                     F -=  Constant(Time.phi[i](time_element[0]+Time.epsilon)) * inner(v0, Phi["v"][i]) * dx
 
         # jump terms (NOTE: For Gauss-Lobatto dG basis, we could hard code the values for the jump term)
@@ -328,11 +328,12 @@ class Boussinesque_Solver:
 
         # RHS integral
         for n, time_element in enumerate(Time.mesh):
+            print(time_element)
             for i in Time.local_dofs[time_element]:
                 # initial condition
                 if n == 0:
-                    F -= Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
-                #inhomogeneity
+                    F -= Constant(1000*Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+                # inhomogeneity
                 if self.inhomogeneity is not None:
                     for (t_q, w_q) in Time.quadrature[time_element]:
                         F -= Constant(w_q * Time.phi[i](t_q)) * self.inhomogeneity * Phi["e"][i] * dx #time integral
@@ -344,14 +345,14 @@ class Boussinesque_Solver:
             # a) e_m^+ * φ_m^{e,+}
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
-                    F += Constant(Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx
+                    F += Constant(1000*Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx
 
             # b) v_{m-1}^- * φ_m^{v,+}
             if n > 0:
                 prev_time_element = Time.mesh[n-1]
                 for i in Time.local_dofs[time_element]:
                     for j in Time.local_dofs[prev_time_element]:
-                        F += Constant((-1.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
+                        F += Constant((-1000.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
 
         # ================= #
         #   (e,v) - Block   #
@@ -377,6 +378,7 @@ class Boussinesque_Solver:
     def solve(self, get_bcs: callable, vfile, efile, initial_condition = Constant((0.,0.,0.,1.)), goal_functional = None):
         # initial condition on slab
         U0 = Function(self.Vh)
+        U1 = Function(self.Vh)
         v0, p0, e0 = split(U0)
         U0 = interpolate(initial_condition, self.Vh)
 
@@ -404,7 +406,7 @@ class Boussinesque_Solver:
             U = {"v": split(U_kh)[:Time.n_dofs], "p": split(U_kh)[Time.n_dofs: 2*Time.n_dofs], "e": split(U_kh)[2*Time.n_dofs:]}
             Phi = {"v": Phi_kh[:Time.n_dofs], "p": Phi_kh[Time.n_dofs: 2*Time.n_dofs], "e": Phi_kh[2*Time.n_dofs:]}
 
-            F = self.weak_formulation(U, Phi, Time, v0, p0, e0)
+            F = self.weak_formulation(U, Phi, Time, v0, p0, e0, k)
             bcs = get_bcs(V, Time)
 
             # solve problem
@@ -414,7 +416,8 @@ class Boussinesque_Solver:
             offset_v = Time.n_dofs
             solutions_p = [U_kh.sub(i + offset_v, deepcopy=True).vector() for i in range(Time.n_dofs)]
             solutions_e = [U_kh.sub(i + 2*offset_v, deepcopy=True).vector() for i in range(Time.n_dofs)]
-    
+
+
             # get v0 for next slab
             U0.vector().set_local(np.concatenate((
                 Time.get_solution_at_time(slab[1]-Time.epsilon, solutions_v),
@@ -425,8 +428,8 @@ class Boussinesque_Solver:
     
             # plot final solution on slab
             print(f"t = {slab[1]}:")
-            vfile << (U0.split(deepcopy=True)[0], slab[0])
-            efile << (U0.split(deepcopy=True)[2], slab[0])
+            vfile << (U0.split(deepcopy=True)[0], slab[1])
+            efile << (U0.split(deepcopy=True)[2], slab[1])
             
             if self.goal_functional is not None:
                 func_vals_t = []

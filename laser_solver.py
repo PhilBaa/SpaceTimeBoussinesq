@@ -52,15 +52,15 @@ def avg_temp(Time, sol_v, sol_p, sol_e, t_q):
 x0 = (0.75, 0.75)
 laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) + pow(x[1] - 0.75, 2)))', degree=2)
 
-sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
-sim.set_goal_functional(avg_temp, 'laser/data/avg_temp.csv')
-sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
+#sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
+#sim.set_goal_functional(avg_temp, 'laser/data/avg_temp.csv')
+#sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
 
-for i, res in enumerate(np.linspace(0.5, 0.9, 3)):
+for i, res in enumerate(np.linspace(0.5, 0.9, 10)):
     save_laser_mesh('laser/trash', res)
     vfile = File("laser/data/trash.pvd", "compressed")
     efile = File("laser/data/trash.pvd", "compressed")
     space_mesh = Mesh('laser/trash.xml')
-    sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
-    sim.set_goal_functional(avg_temp, f'laser/data/avg_temp_{i}.csv')
-    sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
+    #sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
+    #sim.set_goal_functional(avg_temp, f'laser/data/avg_temp_{i}.csv')
+    #sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)

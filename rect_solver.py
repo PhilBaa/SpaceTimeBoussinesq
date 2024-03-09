@@ -7,13 +7,13 @@ from rect.rect_mesher import save_rect_mesh
 vfile = File("rect/data/rect_v.pvd", "compressed")
 efile = File("rect/data/rect_e.pvd", "compressed")
 start_time = 0.
-end_time = 0.01
+end_time = 10.0
 
 s_v = 2
 s_p = 1
 s_e = 2
 r = 1
-slab_size = 0.0005
+slab_size = 0.05
 n_x = 1
 
 Re = 50
@@ -65,7 +65,7 @@ def get_bcs(V, Time):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), rects))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), inflow))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), outflow))
-
+        print(i + offset)
         bcs.append(DirichletBC(V.sub(i + offset), Constant(0), walls))
         bcs.append(DirichletBC(V.sub(i + offset), Constant(0), inflow))
         bcs.append(DirichletBC(V.sub(i + offset), Constant(1), rects))
@@ -76,13 +76,13 @@ facet_marker.set_all(0)
 walls.mark(facet_marker, 1)
 
 sim = Boussinesque_Solver('rect', space_mesh, parameters)
-sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,1.0)))
+sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
 
 vfile = File("rect/data/forget.pvd", "compressed")
 efile = File("rect/data/forget.pvd", "compressed")
-for i in np.linspace(0, 1, 5):
-    save_rect_mesh('rect/meshes/rect' + str(i), i)
-    sim = Boussinesque_Solver('rect', Mesh('rect/meshes/rect' + str(i) + '.xml'), parameters)
-    sim.solve(get_bcs, vfile, efile)
-    print('Done with ' + str(i))
+#for i in np.linspace(0, 1, 5):
+#    save_rect_mesh('rect/meshes/rect' + str(i), i)
+#    sim = Boussinesque_Solver('rect', Mesh('rect/meshes/rect' + str(i) + '.xml'), parameters)
+#    sim.solve(get_bcs, vfile, efile)
+#    print('Done with ' + str(i))
 
