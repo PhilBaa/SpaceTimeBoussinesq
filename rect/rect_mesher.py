@@ -36,9 +36,9 @@ def save_rect_mesh(name: str, resolution: float):
     # remove z-coordinate
     mesh = meshio.Mesh(mesh.points[:, :2], {"triangle":  mesh.get_cells_type("triangle")})
     meshio.svg.write(
-        f"rect/{name}.svg", mesh, float_fmt=".3f", stroke_width="0.1"
+        f"{name}.svg", mesh, float_fmt=".3f", stroke_width="0.1"
     )
-    mesh.write(f"rect/{name}.xml")
+    mesh.write(f"{name}.xml")
 
 if __name__ == '__main__':
-    save_rect_mesh('fine_rect', 1)
+    save_rect_mesh('rect/fine_rect', 1)

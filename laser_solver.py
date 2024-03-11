@@ -45,16 +45,16 @@ def get_bcs(V, Time):
         bcs.append(DirichletBC(V.sub(i + offset), Constant(293.15), walls))
     return bcs
 
-def avg_temp(Time, sol_v, sol_p, sol_e, t_q):
-    Uq = Time.get_solution_at_time(t_q, sol_e)
-    return np.mean(Uq)
+def avg_temp(Time, v0, p0, e0):
+    dx = Measure('dx', domain=space_mesh)
+    return assemble(e0*dx)
 
 x0 = (0.75, 0.75)
 laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) + pow(x[1] - 0.75, 2)))', degree=2)
 
-#sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
-#sim.set_goal_functional(avg_temp, 'laser/data/avg_temp.csv')
-#sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
+sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
+sim.set_goal_functional(avg_temp, 'laser/data/avg_temp.csv')
+sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
 
 for i, res in enumerate(np.linspace(0.5, 0.9, 10)):
     save_laser_mesh('laser/trash', res)

@@ -183,6 +183,9 @@ class Boussinesque_Solver:
 
         self.set_function_spaces()
         self.goal_functional = None
+        self.func_vals = []
+
+        self.lme = 1
     
 
     def read_parameters(self, parameters):
@@ -205,6 +208,10 @@ class Boussinesque_Solver:
         self.end_time = parameters["end_time"]
         self.slab_size = parameters["slab_size"]
 
+    
+    def set_lagrange_multiplier(self, lme):
+        self.lme = lme
+
 
     def set_function_spaces(self):
         self.element = {
@@ -219,9 +226,8 @@ class Boussinesque_Solver:
         self.Vh = Vh
 
     
-    def set_goal_functional(self, goal_functional, goal_file):
+    def set_goal_functional(self, goal_functional):
         self.goal_functional = goal_functional
-        self.goal_file = goal_file
     
 
     def get_goal_functional_values(self):
@@ -332,12 +338,11 @@ class Boussinesque_Solver:
             for i in Time.local_dofs[time_element]:
                 # initial condition
                 if n == 0:
-                    F -= Constant(1000*Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+                    F -= Constant(self.lme * Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
                 # inhomogeneity
                 if self.inhomogeneity is not None:
                     for (t_q, w_q) in Time.quadrature[time_element]:
                         F -= Constant(w_q * Time.phi[i](t_q)) * self.inhomogeneity * Phi["e"][i] * dx #time integral
-
 
 
         #jump terms
@@ -345,14 +350,14 @@ class Boussinesque_Solver:
             # a) e_m^+ * φ_m^{e,+}
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
-                    F += Constant(1000*Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx
+                    F += Constant(self.lme * Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx
 
             # b) v_{m-1}^- * φ_m^{v,+}
             if n > 0:
                 prev_time_element = Time.mesh[n-1]
                 for i in Time.local_dofs[time_element]:
                     for j in Time.local_dofs[prev_time_element]:
-                        F += Constant((-1000.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
+                        F += Constant((-1.0 * self.lme) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
 
         # ================= #
         #   (e,v) - Block   #
@@ -385,8 +390,6 @@ class Boussinesque_Solver:
         ##############################################
         # Start a time marching / time slabbing loop #
         ##############################################
-
-        func_vals = []
 
         for k, slab in enumerate(self.slabs):
             print(f"Solving on slab_{k} = Ω x ({round(slab[0],5)}, {round(slab[1],5)}) ...")
@@ -432,14 +435,7 @@ class Boussinesque_Solver:
             efile << (U0.split(deepcopy=True)[2], slab[1])
             
             if self.goal_functional is not None:
-                func_vals_t = []
-                for time_element in Time.mesh:
-                    for (t_q, _) in Time.quadrature_fine[time_element]:
-                        func_vals_t.append(self.goal_functional(Time, solutions_v, solutions_p, solutions_e, t_q))
-                func_vals.append(np.mean(func_vals_t))   
+                self.func_vals.append(self.goal_functional(Time, v0, p0, e0))
             print("Done.\n")
         
-        if self.goal_functional is not None:
-            self.func_vals = func_vals
-            np.savetxt(self.goal_file, func_vals)
 

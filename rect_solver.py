@@ -3,17 +3,18 @@ import numpy as np
 from fenics import Mesh, TestFunctions, Constant, assemble, Expression, interpolate, solve, DirichletBC, plot, errornorm, set_log_active, derivative, parameters, split, dot, div, CompiledSubDomain, MeshFunction, sqrt, Measure, FacetNormal, Identity
 from solver import *
 from rect.rect_mesher import save_rect_mesh
+import pandas as pd
 
 vfile = File("rect/data/rect_v.pvd", "compressed")
 efile = File("rect/data/rect_e.pvd", "compressed")
 start_time = 0.
-end_time = 10.0
+end_time = 0*40.0
 
 s_v = 2
 s_p = 1
 s_e = 2
 r = 1
-slab_size = 0.05
+slab_size = 0.3
 n_x = 1
 
 Re = 50
@@ -65,24 +66,50 @@ def get_bcs(V, Time):
         bcs.append(DirichletBC(V.sub(i), Constant((0, 0)), rects))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), inflow))
         bcs.append(DirichletBC(V.sub(i), Constant((1, 0)), outflow))
-        print(i + offset)
+
         bcs.append(DirichletBC(V.sub(i + offset), Constant(0), walls))
         bcs.append(DirichletBC(V.sub(i + offset), Constant(0), inflow))
         bcs.append(DirichletBC(V.sub(i + offset), Constant(1), rects))
     return bcs
+
+def Temperature_at_outflow(Time, solutions_v, solutions_p, e0):
+    facet_marker = MeshFunction("size_t", space_mesh, 1)
+    facet_marker.set_all(0)
+    outflow.mark(facet_marker, 2)
+    ds = Measure("ds", domain=space_mesh, subdomain_data=facet_marker)
+    return assemble(e0*ds(2))
 
 facet_marker = MeshFunction("size_t", space_mesh, 1)
 facet_marker.set_all(0)
 walls.mark(facet_marker, 1)
 
 sim = Boussinesque_Solver('rect', space_mesh, parameters)
+sim.set_lagrange_multiplier(1000)
+sim.set_goal_functional(Temperature_at_outflow)
+
 sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
+
+t = np.arange(start_time, end_time, 0.3)
+
+np.savetxt("rect/data/outflow_temp_1.csv", sim.func_vals)
 
 vfile = File("rect/data/forget.pvd", "compressed")
 efile = File("rect/data/forget.pvd", "compressed")
-#for i in np.linspace(0, 1, 5):
-#    save_rect_mesh('rect/meshes/rect' + str(i), i)
-#    sim = Boussinesque_Solver('rect', Mesh('rect/meshes/rect' + str(i) + '.xml'), parameters)
-#    sim.solve(get_bcs, vfile, efile)
-#    print('Done with ' + str(i))
+
+res = np.linspace(0.3, 0.9, 5)
+
+data = np.zeros((len(res), len(t)))
+dofs = []
+
+for i, r in enumerate(res):
+    save_rect_mesh('rect/meshes/rect' + str(i), r)
+    sim = Boussinesque_Solver('rect', Mesh('rect/meshes/rect' + str(i) + '.xml'), parameters)
+    sim.set_lagrange_multiplier(1000)
+    sim.set_goal_functional(Temperature_at_outflow)
+    sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
+    data[i] = sim.func_vals
+    dofs.append(sim.Vh.dim())
+
+pd.DataFrame(data, index=dofs, columns = t).to_csv("rect/data/outflow_temp_dofs.csv")
+
 
