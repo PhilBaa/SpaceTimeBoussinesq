@@ -18,7 +18,7 @@ def save_laser_mesh(name: str, resolution: float):
         lambda dim, tag, x, y, z, lc: min(
             [2e-2 + 6.0e-1 * ((x - 0.75) ** 2 + (y - 0.75) ** 2), 
             2e-2 + 6.0e-1 * ((x - 0.9) ** 2 + (y - 0.1) ** 2),
-            0.06])/resolution
+            0.06])/resolution/1.5
         )
 
         mesh = geom.generate_mesh()

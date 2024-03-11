@@ -14,7 +14,7 @@ parameters = {
     "r": 1,
     "start_time": 0.,
     "end_time":  0.4,
-    "slab_size": 0.002,
+    "slab_size": 0.001,
     "n_x": 1,
     "nu0": 1.0,
     "alpha": 6.88e-5,
