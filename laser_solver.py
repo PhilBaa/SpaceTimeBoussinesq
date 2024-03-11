@@ -13,7 +13,7 @@ parameters = {
     "s_e": 2,
     "r": 1,
     "start_time": 0.,
-    "end_time":  0.02,   #0.4,
+    "end_time":  0.4,
     "slab_size": 0.002,
     "n_x": 1,
     "nu0": 1.0,
@@ -53,14 +53,31 @@ x0 = (0.75, 0.75)
 laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) + pow(x[1] - 0.75, 2)))', degree=2)
 
 sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
-sim.set_goal_functional(avg_temp, 'laser/data/avg_temp.csv')
+sim.set_goal_functional(avg_temp)
 sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
 
-for i, res in enumerate(np.linspace(0.5, 0.9, 10)):
-    save_laser_mesh('laser/trash', res)
-    vfile = File("laser/data/trash.pvd", "compressed")
-    efile = File("laser/data/trash.pvd", "compressed")
-    space_mesh = Mesh('laser/trash.xml')
-    #sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
-    #sim.set_goal_functional(avg_temp, f'laser/data/avg_temp_{i}.csv')
-    #sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
+t = np.arange(parameters['start_time'], parameters['end_time'], parameters['slab_size'])
+np.savetxt("laser/data/avg_temp.csv", sim.func_vals)
+
+
+vfile = File("laser/data/forget.pvd", "compressed")
+efile = File("laser/data/forget.pvd", "compressed")
+
+res = np.linspace(0.1, 0.9, 10)
+
+data = np.zeros((len(res), len(t)))
+dofs = []
+
+for i, r in enumerate(res):
+    save_laser_mesh('laser/meshes/laser' + str(i), r)
+    sim = Boussinesque_Solver('laser', Mesh('laser/meshes/laser' + str(i) + '.xml'), parameters)
+    sim.set_goal_functional(avg_temp)
+    try:
+        sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
+        data[i] = sim.func_vals
+    except RuntimeError:
+        print("Failed to solve")
+        pass
+    dofs.append(sim.Vh.dim())
+
+pd.DataFrame(data, index=dofs, columns = t).to_csv("laser/data/avg_temp_dofs.csv")

@@ -278,21 +278,21 @@ class Boussinesque_Solver:
             for i in Time.local_dofs[time_element]:
                 # initial condition
                 if k == 0:
-                    F -=  Constant(Time.phi[i](time_element[0]+Time.epsilon)) * inner(v0, Phi["v"][i]) * dx
+                    F -=  Constant(self.lme*Time.phi[i](time_element[0]+Time.epsilon)) * inner(v0, Phi["v"][i]) * dx
 
         # jump terms (NOTE: For Gauss-Lobatto dG basis, we could hard code the values for the jump term)
         for n, time_element in enumerate(Time.mesh):
             # a) v_m^+ * φ_m^{v,+}
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
-                    F += Constant(Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx
+                    F += Constant(self.lme*Time.phi[j](time_element[0]+Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx
 
             # b) v_{m-1}^- * φ_m^{v,+}
             if n > 0:
                 prev_time_element = Time.mesh[n-1]
                 for i in Time.local_dofs[time_element]:
                     for j in Time.local_dofs[prev_time_element]:
-                        F += Constant((-1.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx       
+                        F += Constant((-self.lme) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx       
 
         # ================= #
         #   (v,p) - Block   #

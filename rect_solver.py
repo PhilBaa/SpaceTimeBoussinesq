@@ -8,7 +8,7 @@ import pandas as pd
 vfile = File("rect/data/rect_v.pvd", "compressed")
 efile = File("rect/data/rect_e.pvd", "compressed")
 start_time = 0.
-end_time = 0*40.0
+end_time = 40.0
 
 s_v = 2
 s_p = 1
@@ -96,7 +96,7 @@ np.savetxt("rect/data/outflow_temp_1.csv", sim.func_vals)
 vfile = File("rect/data/forget.pvd", "compressed")
 efile = File("rect/data/forget.pvd", "compressed")
 
-res = np.linspace(0.3, 0.9, 5)
+res = np.linspace(0.1, 0.9, 10)
 
 data = np.zeros((len(res), len(t)))
 dofs = []
@@ -106,9 +106,13 @@ for i, r in enumerate(res):
     sim = Boussinesque_Solver('rect', Mesh('rect/meshes/rect' + str(i) + '.xml'), parameters)
     sim.set_lagrange_multiplier(1000)
     sim.set_goal_functional(Temperature_at_outflow)
-    sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
-    data[i] = sim.func_vals
-    dofs.append(sim.Vh.dim())
+    try:
+        sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
+        data[i] = sim.func_vals
+    except RuntimeError:
+        pass
+    finally:
+        dofs.append(sim.Vh.dim())
 
 pd.DataFrame(data, index=dofs, columns = t).to_csv("rect/data/outflow_temp_dofs.csv")
 
