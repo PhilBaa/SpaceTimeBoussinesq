@@ -20,19 +20,10 @@ def save_rect_mesh(name: str, resolution: float):
                 [8.0, 3.0],
                 [-2.0, 3.0],
                 [-2.0, 0.5],
-
-
-
-
             ],
             mesh_size=0.1/resolution,
         )
-
         mesh = geom.generate_mesh()
-
-
-
-
     # remove z-coordinate
     mesh = meshio.Mesh(mesh.points[:, :2], {"triangle":  mesh.get_cells_type("triangle")})
     meshio.svg.write(
@@ -41,4 +32,4 @@ def save_rect_mesh(name: str, resolution: float):
     mesh.write(f"{name}.xml")
 
 if __name__ == '__main__':
-    save_rect_mesh('rect/fine_rect', 1)
+    save_rect_mesh('rect/rect', 1)

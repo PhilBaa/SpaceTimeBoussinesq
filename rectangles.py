@@ -5,14 +5,14 @@ from solver import *
 from rect.rect_mesher import save_rect_mesh
 import pandas as pd
 
-vfile = File("rect/data/rect_v.pvd", "compressed")
-efile = File("rect/data/rect_e.pvd", "compressed")
+vfile = File("rect/data/rect_v2.pvd", "compressed")
+efile = File("rect/data/rect_e2.pvd", "compressed")
 start_time = 0.
 end_time = 40.0
 
 s_v = 2
 s_p = 1
-s_e = 2
+s_e = 1
 r = 1
 slab_size = 0.3
 n_x = 1
@@ -84,14 +84,14 @@ facet_marker.set_all(0)
 walls.mark(facet_marker, 1)
 
 sim = Boussinesque_Solver('rect', space_mesh, parameters)
-sim.set_lagrange_multiplier(1000)
+#sim.set_lagrange_multiplier(1000)
 sim.set_goal_functional(Temperature_at_outflow)
 
 sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
 
 t = np.arange(start_time, end_time, 0.3)
 
-np.savetxt("rect/data/outflow_temp_1.csv", sim.func_vals)
+#np.savetxt("rect/data/outflow_temp_1.csv", sim.func_vals)
 
 vfile = File("rect/data/forget.pvd", "compressed")
 efile = File("rect/data/forget.pvd", "compressed")

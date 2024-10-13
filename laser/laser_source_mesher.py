@@ -23,9 +23,6 @@ def save_laser_mesh(name: str, resolution: float):
 
         mesh = geom.generate_mesh()
 
-
-
-
     # remove z-coordinate
     mesh = meshio.Mesh(mesh.points[:, :2], {"triangle":  mesh.get_cells_type("triangle")})
     meshio.svg.write(
@@ -34,4 +31,4 @@ def save_laser_mesh(name: str, resolution: float):
     mesh.write(f"{name}.xml")
 
 if __name__ == '__main__':
-    save_laser_mesh('laser/fine_laser', 1)
+    save_laser_mesh('laser/laser', 1)

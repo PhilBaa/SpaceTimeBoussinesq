@@ -10,7 +10,7 @@ efile = File("laser/data/laser_e.pvd", "compressed")
 parameters = {
     "s_v": 2,
     "s_p": 1,
-    "s_e": 2,
+    "s_e": 1,
     "r": 1,
     "start_time": 0.,
     "end_time":  0.4,
@@ -54,30 +54,4 @@ laser = Expression(f'pow(10,5)*sqrt(2*pi)*exp(-pow(10, 4) * (pow(x[0]-0.75, 2) +
 
 sim = Boussinesque_Solver('laser', space_mesh, parameters, inhomogeneity = laser)
 sim.set_goal_functional(avg_temp)
-sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), goal_functional = avg_temp)
-
-t = np.arange(parameters['start_time'], parameters['end_time'], parameters['slab_size'])
-np.savetxt("laser/data/avg_temp.csv", sim.func_vals)
-
-
-vfile = File("laser/data/forget.pvd", "compressed")
-efile = File("laser/data/forget.pvd", "compressed")
-
-res = np.linspace(0.1, 0.9, 10)
-
-data = np.zeros((len(res), len(t)))
-dofs = []
-
-for i, r in enumerate(res):
-    save_laser_mesh('laser/meshes/laser' + str(i), r)
-    sim = Boussinesque_Solver('laser', Mesh('laser/meshes/laser' + str(i) + '.xml'), parameters)
-    sim.set_goal_functional(avg_temp)
-    try:
-        sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.0,0.0,0.0,0.0)))
-        data[i] = sim.func_vals
-    except RuntimeError:
-        print("Failed to solve")
-        pass
-    dofs.append(sim.Vh.dim())
-
-pd.DataFrame(data, index=dofs, columns = t).to_csv("laser/data/avg_temp_dofs.csv")
+sim.solve(get_bcs, vfile, efile, initial_condition=Constant((0.,0.,0.,0.)), QoI = avg_temp)
