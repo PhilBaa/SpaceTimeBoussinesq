@@ -1,11 +1,9 @@
 import dolfin
 import numpy as np
-#import matplotlib.pyplot as plt
 from sympy import Mul, Id, symbols, init_printing, expand, compose, diff, lambdify, Piecewise
 from IPython.display import Math, display
 from fenics import Mesh, VectorElement, Function, TrialFunction, TestFunction, TestFunctions, FunctionSpace, dx, inner, grad, FiniteElement, MixedElement, Constant, assemble, Expression, interpolate, solve, DirichletBC, plot, errornorm, set_log_active, derivative, parameters, split, dot, div, CompiledSubDomain, MeshFunction, sqrt, Measure, FacetNormal, Identity
 from ufl import replace
-from ufl.operators import exp
 from fenics import exp
 import time
 import pandas as pd
@@ -171,9 +169,10 @@ class TimeFE:
 
 
 class Boussinesque_Solver:
-    def __init__(self, name, space_mesh, parameters):
+    def __init__(self, name, space_mesh, parameters, inhomogeneity = None):
         self.name = name
         self.space_mesh = space_mesh
+        self.inhomogeneity = inhomogeneity
         self.read_parameters(parameters)
 
         self.slabs = [(self.start_time, self.start_time+self.slab_size)]
@@ -181,13 +180,22 @@ class Boussinesque_Solver:
             self.slabs.append((self.slabs[-1][1], self.slabs[-1][1]+self.slab_size))
 
         self.set_function_spaces()
+        self.QoI = None
+        self.func_vals = []
     
 
     def read_parameters(self, parameters):
         self.parameters = parameters
-        self.nu = parameters["nu"]
+        self.nu0 = parameters["nu0"]
         self.alpha = parameters["alpha"]
         self.g = parameters["g"]
+        self.R = parameters["R"]
+        self.E_A = parameters["E_A"]
+        self.T0 = parameters["T0"]
+        self.k = parameters["k"]
+        self.rho = parameters["rho"]
+
+
         self.s_v = parameters["s_v"]
         self.s_p = parameters["s_p"]
         self.s_e = parameters["s_e"]
@@ -208,9 +216,33 @@ class Boussinesque_Solver:
         self.Uh = Function(Vh)
         self.Phih = TestFunctions(Vh)
         self.Vh = Vh
+
     
+    def set_QoI(self, QoI):
+        self.QoI = QoI
     
-    def weak_formulation(self, U, Phi, Time, v0, p0, e0):
+
+    def get_QoI_values(self):
+        return self.func_vals
+
+    
+    def weak_formulation(self, U, Phi, Time, v0, p0, e0, k):
+        """This function assembles the weak form F(U, Phi) by iterating over the Dofs if Time and doing the time integral explicitely.
+        The space integral (over a given time dof) is handled by Fenics.
+
+        Args:
+            U (dict[str, list[int, Function]]): The trial function. U should contain keys "v", "p", "e" for velocity, pressure and temperature respectively.
+            The values should be lists containing one Function for each time dof.
+            Phi (dict[str, list[int, Function]]): The test function. Analogous to U.
+            Time (Time_FE): The temporal space, which is used to perform the quadrature over time.
+            v0 (_type_): The initial condition for velocity.
+            p0 (_type_): The initial condition for pressure.
+            e0 (_type_): The initial condition for temperature.
+            k (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         # start with "empty" space-time variational form
         F = Constant(0.)*U["p"][0]*Phi["p"][0]*dx
 
@@ -225,10 +257,8 @@ class Boussinesque_Solver:
                 for j in Time.local_dofs[time_element]:
                     for (t_q, w_q) in Time.quadrature[time_element]:
                         # TODO: to reduce the number of terms in the sum, the sum over the temporal quadrature can be evaluated prior to adding to the form F
-                        F += Constant(w_q * Time.dt_phi[j](t_q) * Time.phi[i](t_q)) \
+                        F += Constant(self.rho * w_q * Time.dt_phi[j](t_q) * Time.phi[i](t_q)) \
                             * dot(U["v"][j], Phi["v"][i]) * dx
-                        F += Constant(w_q * Time.phi[j](t_q) * Time.phi[i](t_q)) \
-                            * Constant(self.nu) * inner(grad(U["v"][j]), grad(Phi["v"][i])) * dx
             # assemble nonlinearity
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
@@ -238,18 +268,15 @@ class Boussinesque_Solver:
                         #      for this we need Gauss-Legendre quadrature of degree >= (3r+1)/2
                         for (t_q, w_q) in Time.quadrature_fine[time_element]:
                             F += Constant(w_q * Time.phi[j](t_q) * Time.phi[l](t_q) * Time.phi[i](t_q)) \
-                                * dot(dot(grad(U["v"][j]), U["v"][l]), Phi["v"][i])* dx   
+                                *Constant(self.rho)* dot(dot(grad(U["v"][j]), U["v"][l]), Phi["v"][i])* dx   
 
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
-                        # NOTE: For nonlinearities make sure that the temporal quadrature is fine enough
-                        # E.g. for the nonlinearity u^2, we need to be able to integrate polynomials of degree 3r exactly in time
-                        #      for this we need Gauss-Legendre quadrature of degree >= (3r+1)/2
                         for (t_q, w_q) in Time.quadrature_fine[time_element]:
-                            theta_tq = 0. # Function?
+                            theta_tq = 0.
                             for l in Time.local_dofs[time_element]:
-                                theta_tq += exp(1/(U["e"][l]*Time.phi[l](t_q) + 200))
-                            F += Constant(w_q * Time.phi[j](t_q)  * Time.phi[i](t_q)) \
+                                theta_tq += exp(self.E_A/(self.R*(U["e"][l]*Time.phi[l](t_q) + self.T0)))
+                            F += Constant(self.nu0 * w_q * Time.phi[j](t_q) * Time.phi[i](t_q)) \
                                 * inner(grad(U["v"][j]), grad(Phi["v"][i]))*theta_tq * dx 
 
 
@@ -273,7 +300,7 @@ class Boussinesque_Solver:
                 prev_time_element = Time.mesh[n-1]
                 for i in Time.local_dofs[time_element]:
                     for j in Time.local_dofs[prev_time_element]:
-                        F += Constant((-1.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx       
+                        F += Constant((-1.0) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * inner(U["v"][j], Phi["v"][i]) * dx       
 
         # ================= #
         #   (v,p) - Block   #
@@ -308,17 +335,23 @@ class Boussinesque_Solver:
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
                     for (t_q, w_q) in Time.quadrature[time_element]:
-                        F += Constant(w_q * Time.phi[j](t_q) * Time.phi[i](t_q)) \
+                        F += Constant(self.k * w_q * Time.phi[j](t_q) * Time.phi[i](t_q)) \
                             * inner(grad(U["e"][j]), grad(Phi["e"][i])) * dx
                         F += Constant(w_q * Time.dt_phi[j](t_q) * Time.phi[i](t_q)) \
                             * U["e"][j] * Phi["e"][i] * dx
 
         # RHS integral
         for n, time_element in enumerate(Time.mesh):
+            print(time_element)
             for i in Time.local_dofs[time_element]:
                 # initial condition
                 if n == 0:
                     F -= Constant(Time.phi[i](time_element[0]+Time.epsilon)) * e0 * Phi["e"][i] * dx
+                # inhomogeneity
+                if self.inhomogeneity is not None:
+                    for (t_q, w_q) in Time.quadrature[time_element]:
+                        F -= Constant(w_q * Time.phi[i](t_q)) * self.inhomogeneity * Phi["e"][i] * dx #time integral
+
 
         #jump terms
         for n, time_element in enumerate(Time.mesh):
@@ -332,7 +365,7 @@ class Boussinesque_Solver:
                 prev_time_element = Time.mesh[n-1]
                 for i in Time.local_dofs[time_element]:
                     for j in Time.local_dofs[prev_time_element]:
-                        F += Constant((-1.) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
+                        F += Constant((-1.0) * Time.phi[j](prev_time_element[1]-Time.epsilon) * Time.phi[i](time_element[0]+Time.epsilon)) * U["e"][j] * Phi["e"][i] * dx       
 
         # ================= #
         #   (e,v) - Block   #
@@ -350,14 +383,15 @@ class Boussinesque_Solver:
             for i in Time.local_dofs[time_element]:
                 for j in Time.local_dofs[time_element]:
                     for (t_q, w_q) in Time.quadrature[time_element]:
-                        F += Constant(w_q * Time.phi[j](t_q) * Time.phi[i](t_q)* self.alpha* self.g) \
-                            *U["e"][i] * Phi["v"][j][1] * dx
+                        F += Constant(-w_q * Time.phi[j](t_q) * Time.phi[i](t_q)* self.alpha* self.g) \
+                             * U["e"][j] * Phi["v"][i][1] * dx
         return F
 
 
-    def solve(self, get_bcs: callable, vfile, efile, initial_condition = Constant((0.,0.,0.,1.))):
+    def solve(self, get_bcs: callable, vfile, pfile, efile, initial_condition = Constant((0.,0.,0.,1.))):
         # initial condition on slab
         U0 = Function(self.Vh)
+        U1 = Function(self.Vh)
         v0, p0, e0 = split(U0)
         U0 = interpolate(initial_condition, self.Vh)
 
@@ -383,7 +417,7 @@ class Boussinesque_Solver:
             U = {"v": split(U_kh)[:Time.n_dofs], "p": split(U_kh)[Time.n_dofs: 2*Time.n_dofs], "e": split(U_kh)[2*Time.n_dofs:]}
             Phi = {"v": Phi_kh[:Time.n_dofs], "p": Phi_kh[Time.n_dofs: 2*Time.n_dofs], "e": Phi_kh[2*Time.n_dofs:]}
 
-            F = self.weak_formulation(U, Phi, Time, v0, p0, e0)
+            F = self.weak_formulation(U, Phi, Time, v0, p0, e0, k)
             bcs = get_bcs(V, Time)
 
             # solve problem
@@ -394,7 +428,7 @@ class Boussinesque_Solver:
             solutions_p = [U_kh.sub(i + offset_v, deepcopy=True).vector() for i in range(Time.n_dofs)]
             solutions_e = [U_kh.sub(i + 2*offset_v, deepcopy=True).vector() for i in range(Time.n_dofs)]
 
-    
+
             # get v0 for next slab
             U0.vector().set_local(np.concatenate((
                 Time.get_solution_at_time(slab[1]-Time.epsilon, solutions_v),
@@ -405,6 +439,12 @@ class Boussinesque_Solver:
     
             # plot final solution on slab
             print(f"t = {slab[1]}:")
-            vfile << (U0.split(deepcopy=True)[0], slab[0])
-            efile << (U0.split(deepcopy=True)[2], slab[0])
+            vfile << (U0.split(deepcopy=True)[0], slab[1])
+            pfile << (U0.split(deepcopy=True)[1], slab[1])
+            efile << (U0.split(deepcopy=True)[2], slab[1])
+            
+            if self.QoI is not None:
+                self.func_vals.append(self.QoI(self, Time, v0, p0, e0))
+            print("Done.\n")
+        
 
