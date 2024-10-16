@@ -66,7 +66,7 @@ $$
 where $(\cdot, \cdot)$ is the usual $L^2$ inner product over space. Moreover, $v^0$ and $\theta^0$ are initial conditions. In practice it is computanionally expensive to use this weak form as it is, which is why we divided the time interval into slabs and performed a time marching scheme using dG(1).
 
 ## Results
-For the Schäfer Turek benchmark [[1]](#1) with additional boundary conditions $\theta = 600$ at $\partial\Omega_\text{Cylinder}$ and $\theta=0$ at the other boundaries, and parameters $R=E_A$, $T_0$, $k=0.005$, $g = (0, -9.81)$ and $\alpha=0.005$, we obtain the following results as well as drag and lift values:
+For the Schäfer Turek benchmark [[1]](#1) with additional boundary conditions $\theta = 600$ at $\partial\Omega_\text{Cylinder}$ and $\theta=0$ at the other boundaries, and parameters $R=E_A$, $T_0=200$, $k=0.005$, $g = (0, -9.81)$ and $\alpha=0.005$, we obtain the following results as well as drag and lift values:
 
 https://github.com/user-attachments/assets/40fe9dae-a3dd-4a57-9686-6f5a01437ec5
 
